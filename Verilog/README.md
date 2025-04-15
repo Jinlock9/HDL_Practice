@@ -75,3 +75,93 @@ Reviewing `verilog` referring to [HDLBits](https://hdlbits.01xz.net/wiki/Main_Pa
 
 
 ## 3. Modules
+
+## 4. Procedures
+
+### `assign` vs `always @(*)`
+
+- Two ways to describe combinational logic:
+  - `assign out = expr;` → Continuous assignment
+  - `always @(*) out = expr;` → Procedural assignment
+
+- **Both produce identical hardware** (combinational logic), but differ in **syntax and flexibility**:
+  - `assign` → simpler, no `if`, `case`, etc.
+  - `always @(*)` → supports rich control logic (`if`, `case`), useful for complex circuits
+
+- **Use `@(*)`** (or `always_comb` in SystemVerilog) to ensure all inputs are included in the sensitivity list.
+  - Manually listing inputs can cause **simulation mismatches** if a signal is omitted.
+
+- **`wire` vs `reg`:**
+  - `assign` → left-hand side must be `wire`
+  - `always` → left-hand side must be `reg`
+  - These are just **syntactic rules**, not related to actual synthesized hardware structure.
+
+- **Note:** Procedural continuous assignments (`assign` inside `always`) exist but are not synthesizable.
+
+### Clocked Always Blocks & Assignment Types in Verilog
+
+#### **Two Types of Synthesizable `always` Blocks**
+
+1. **Combinational Logic**  
+   - `always @(*)`  
+   - Models pure logic (no memory)
+   - Outputs update **immediately** when inputs change
+
+2. **Clocked Logic**  
+   - `always @(posedge clk)`  
+   - Models **sequential logic** (e.g., flip-flops/registers)
+   - Output updates **on the rising edge** of the clock
+   - Stores values between clock cycles
+
+---
+
+#### **Assignment Types in Verilog**
+
+| Type                        | Syntax         | Context             | Meaning                                                                 |
+|-----------------------------|----------------|----------------------|-------------------------------------------------------------------------|
+| **Continuous**              | `assign x = y;`| Outside `always`     | Constantly drives `x` with `y`                                         |
+| **Blocking (procedural)**   | `x = y;`       | Inside `always`      | Executes immediately (sequentially, like C)                            |
+| **Non-blocking (procedural)**| `x <= y;`      | Inside `always`      | Scheduled for update at the end of the time step (parallel semantics)  |
+
+---
+
+#### Best Practices
+
+- Use **blocking (`=`)** inside **combinational** `always @(*)` blocks  
+- Use **non-blocking (`<=`)** inside **clocked** `always @(posedge clk)` blocks  
+- Mixing these incorrectly causes **hard-to-debug simulation mismatches** and **synthesis issues**
+
+> Understanding the simulator's event scheduling is not necessary for hardware design, but **following these rules is critical** for correct synthesis and simulation alignment.
+
+### Summary: Avoiding Unintended Latches in Verilog
+
+A common source of bugs in Verilog is unintentionally creating latches by writing incomplete combinational logic. Latches occur when an `always @(*)` block doesn't assign a value to an output under all conditions. In such cases, Verilog "remembers" the previous value using a latch.
+
+**Incorrect example (creates latch):**
+```verilog
+always @(*) begin
+    if (cpu_overheated)
+        shut_off_computer = 1; // No assignment when condition is false
+end
+```
+
+This causes Verilog to infer a latch, since it must preserve the previous value when the condition is false.
+
+**Correct approach (avoids latch):**
+```verilog
+always @(*) begin
+    shut_off_computer = 0;      // Default assignment
+    if (cpu_overheated)
+        shut_off_computer = 1;
+end
+```
+
+**Key guidelines:**
+- Always assign a value to every output in all code paths.
+- Use default assignments at the beginning of `always @(*)` blocks.
+- Include `else` clauses for all `if` conditions, or provide defaults beforehand.
+
+**Takeaway:**
+Think in terms of actual circuit structure first. Do not rely on writing code and hoping the synthesizer generates the desired logic. If you see messages like "inferring latch," review your code to ensure all outputs are assigned under all conditions.
+
+Let me know if you'd like this in table form or want to review common latch-inducing patterns.
