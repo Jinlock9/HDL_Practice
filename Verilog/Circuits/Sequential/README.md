@@ -69,3 +69,8 @@ Ex. 5 ~ 8 Review. BCD Counting 주의
 
 ## 3. Shift Registers
 9. 3 input LUT , dff version과 shift register 버전 비교해보기
+
+## 4. More Circuits
+3. Review 요망
+
+## 5. Finite State Machine
